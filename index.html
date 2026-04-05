@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="description" content="Aplikasi cerdas untuk membuat lembar kerja (worksheet) menyusun huruf hijaiyah dan mufrodat secara otomatis.">
+    <meta property="og:title" content="Alfal Print: Hijaiyah & Mufrodat (Bagian 2)">
+    <meta property="og:description" content="Bikin soal ujian evaluasi Bahasa Arab untuk anak dan siswa hanya dalam 5 detik. Klik, Acak, dan Print!">
+    <meta property="og:type" content="website">
+
+    <title>Alfal Print: Generator Worksheet Mufrodat (Bagian 2)</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        arabic: ['Amiri', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* CSS Khusus untuk Worksheet A4 */
+        body {
+            background-color: #f1f5f9;
+        }
+
+        .a4-container {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            margin: 0 auto;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        /* Area Print / Export */
+        #worksheet-content {
+            padding: 10mm; /* Margin kertas 10mm */
+            width: 100%;
+            height: 100%;
+            background: white;
+            color: black;
+            font-family: 'Inter', sans-serif;
+            position: relative;
+        }
+
+        /* Layout Flexbox agar Tabel Memenuhi Kertas & Brand di Bawah */
+        #mode-worksheet {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(296mm - 20mm); /* Memaksa wadah memenuhi 1 halaman A4 penuh */
+        }
+
+        #mode-worksheet .table-worksheet {
+            flex-grow: 1; /* Membuat tabel memanjang otomatis mengisi sisa ruang kertas */
+            height: 1px;
+        }
+
+        .letter-box {
+            display: inline-block;
+            text-align: center;
+            margin: 0 4px;
+            font-family: 'Amiri', serif;
+            font-size: 26px;
+            font-weight: bold;
+            color: #000000;
+            direction: rtl;
+        }
+
+        .writing-line {
+            border-bottom: 1px dashed #94a3b8;
+            width: 100%;
+            height: 20px;
+            display: inline-block;
+        }
+
+        .table-worksheet {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .table-worksheet th, .table-worksheet td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 8px;
+            vertical-align: middle;
+        }
+
+        .table-worksheet th {
+            background-color: #f1f5f9;
+            font-weight: 700;
+            text-align: center;
+            color: #000000;
+            height: 40px; /* Header tabel punya tinggi tetap */
+        }
+
+        /* Mode Cetak (Print) */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0mm;
+            }
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+                overflow: visible !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .a4-container {
+                box-shadow: none;
+                margin: 0;
+                width: 210mm;
+                height: 297mm;
+                page-break-after: avoid;
+                page-break-inside: avoid;
+            }
+            #worksheet-content {
+                padding: 10mm;
+            }
+        }
+
+        /* Scrollbar kustom */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen md:h-screen flex flex-col bg-slate-100 md:overflow-hidden">
+
+    <div id="login-overlay" class="fixed inset-0 bg-slate-900 bg-opacity-95 z-[100] flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
+            <div class="text-center mb-6">
+                <div class="bg-brand-100 text-brand-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-lock text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800">Masuk ke Alfal Print</h2>
+                <p class="text-sm text-slate-500 mt-1">Silakan masukkan nama dan token akses Anda.</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="login-name" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Masukkan nama Anda">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Token Akses</label>
+                    <input type="password" id="login-token" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Masukkan token dari admin">
+                </div>
+                <div id="login-error" class="hidden bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200 text-center font-medium">
+                    Token akses salah atau nama belum diisi!
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-lg transition shadow-md mt-2 flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> Masuk Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bg-white border-b border-gray-200 px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row justify-between items-center no-print shrink-0 z-10 gap-3 md:gap-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-brand-100 text-brand-600 p-2 rounded-lg">
+                <i class="fa-solid fa-book-open text-xl"></i>
+            </div>
+            <div class="text-center md:text-left">
+                <h1 class="font-bold text-xl text-slate-800">ALFAL.ID</h1>
+                <p class="text-xs text-slate-500">Generator Worksheet Mufrodat (Bagian 2)</p>
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap justify-center gap-2 md:gap-3" id="export-buttons-worksheet">
+            <button onclick="exportToWord()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-file-word"></i> Word
+            </button>
+            <button onclick="exportToPDF()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+            <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-print"></i> Cetak
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <aside class="w-full md:w-80 bg-white border-b md:border-r border-gray-200 p-4 md:p-6 flex flex-col gap-4 md:gap-6 no-print shadow-sm z-10 overflow-y-visible md:overflow-y-auto shrink-0">
+            <div>
+                <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2 md:mb-3">Pengaturan Worksheet 2</h2>
+                <p class="text-xs md:text-sm text-slate-500 mb-3 md:mb-4">Pilih tema dan acak soal untuk menghasilkan lembar kerja tingkat lanjut.</p>
+                
+                <label class="block text-xs md:text-sm font-medium text-slate-700 mb-1">Pilih Tema Kosakata</label>
+                <select id="theme-select" onchange="generateWorksheet()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    <option value="rumah">🏠 Isi Rumah (أَثَاثُ المَنْزِلِ)</option>
+                    <option value="sekolah">🏫 Peralatan Sekolah (الأَدَوَاتُ المَدْرَسِيَّةُ)</option>
+                    <option value="hewan">🦁 Hewan (الحَيَوَانَاتُ)</option>
+                    <option value="anggotaTubuh">👁️ Anggota Tubuh (أَعْضَاءُ الجِسْمِ)</option>
+                    <option value="buah">🍎 Buah-buahan (الفَوَاكِهُ)</option>
+                    <option value="keluarga">👨‍👩‍👧‍👦 Keluarga (الأُسْرَةُ)</option>
+                    <option value="warna">🎨 Warna (الأَلْوَانُ)</option>
+                    <option value="transportasi">🚗 Transportasi (المُوَاصَلَاتُ)</option>
+                    <option value="pakaian">👕 Pakaian (المَلَابِسُ)</option>
+                    <option value="profesi">👮 Profesi (المِهَنُ)</option>
+                    <option value="tempat">🏥 Tempat Umum (الأَمَاكِنُ)</option>
+                    <option value="sayuran">🥕 Sayuran (الخَضْرَوَاتُ)</option>
+                    <option value="minuman">🥛 Minuman (المَشْرُوبَاتُ)</option>
+                    <option value="alam">🏔️ Alam Semesta (الطَّبِيْعَةُ)</option>
+                    <option value="waktu">⏱️ Waktu & Arah (الأَوْقَاتُ وَالجِهَاتُ)</option>
+                    <option value="dapur">🍳 Peralatan Dapur (أَدَوَاتُ المَطْبَخِ)</option>
+                    <option value="olahraga">⚽ Olahraga (الرِّيَاضَةُ)</option>
+                    <option value="bentuk">📐 Bentuk (الأَشْكَالُ)</option>
+                    <option value="cuaca">🌦️ Cuaca & Musim (الطَّقْسُ وَالفُصُولُ)</option>
+                    <option value="serangga">🦟 Serangga (الحَشَرَاتُ)</option>
+                    <option value="kesehatan">🏥 Kesehatan & Penyakit (الصِّحَّةُ وَالأَمْرَاضُ)</option>
+                    <option value="peralatan">🛠️ Peralatan Tukang (الأَدَوَاتُ)</option>
+                    <option value="tumbuhan">🌿 Tumbuhan (النَّبَاتَاتُ)</option>
+                    <option value="elektronik">💻 Elektronik (الإِلِكْتِرُونِيَّاتُ)</option>
+                    <option value="makanan">🍔 Makanan (الأَطْعِمَةُ)</option>
+                    <option value="agama">🕌 Agama & Ibadah (الدِّيْنُ وَالعِبَادَةُ)</option>
+                    <option value="taman">🌳 Di Taman (فِي الحَدِيْقَةِ)</option>
+                    <option value="laluLintas">🚦 Lalu Lintas (المُرُورُ)</option>
+                    <option value="pantai">🏖️ Pantai & Laut (الشَّاطِئُ وَالبَحْرُ)</option>
+                    <option value="sifat">✨ Kata Sifat (الصِّفَاتُ)</option>
+                </select>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <div>
+                <label class="block text-xs md:text-sm font-medium text-slate-700 mb-1">Judul Lembaga / Sekolah</label>
+                <input type="text" id="school-name" oninput="updateHeader()" value="ALFAL.ID | BELAJAR BAHASA ARAB" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+
+            <button onclick="shuffleQuestions()" class="w-full bg-brand-50 hover:bg-brand-100 border border-brand-200 text-brand-700 px-4 py-2 md:py-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-shuffle"></i> Acak Soal Sekarang
+            </button>
+
+            <div class="mt-0 md:mt-auto bg-slate-50 p-3 md:p-4 rounded-lg border border-slate-200">
+                <h3 class="text-xs font-bold text-slate-700 mb-1"><i class="fa-solid fa-circle-info text-blue-500"></i> Tingkat Lanjut</h3>
+                <p class="text-xs text-slate-500 leading-relaxed">Ini adalah worksheet <strong>Bagian 2</strong>. Cocok digunakan sebagai ujian karena siswa diuji merangkai huruf dan mengingat artinya secara mandiri.</p>
+            </div>
+        </aside>
+
+        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-200 pb-20">
+            <div class="flex justify-center min-w-max">
+                <div class="a4-container" id="worksheet-wrapper">
+                    
+                    <div id="worksheet-content">
+                        
+                        <div id="mode-worksheet" class="worksheet-page relative">
+                            <div class="flex justify-between items-start border-b-2 border-slate-800 pb-2 mb-3">
+                                <div class="flex-1">
+                                    <h2 id="display-school" class="font-extrabold text-xl uppercase" style="color: #15803d;">ALFAL.ID | BELAJAR BAHASA ARAB</h2>
+                                    <p class="text-xs font-semibold text-black">Lembar Kerja Peserta Didik (LKPD) Bahasa Arab</p>
+                                </div>
+                                <div class="w-64">
+                                    <table class="w-full text-xs">
+                                        <tr>
+                                            <td class="pb-0.5 w-16 font-bold text-black">Nama</td>
+                                            <td class="pb-0.5 font-bold text-black">: <span class="writing-line w-40" style="height: 15px;"></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="pb-0.5 font-bold text-black">Kelas</td>
+                                            <td class="pb-0.5 font-bold text-black">: <span class="writing-line w-40" style="height: 15px;"></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="font-bold text-black">Tanggal</td>
+                                            <td class="font-bold text-black">: <span class="writing-line w-40" style="height: 15px;"></span></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="w-20 h-20 border-2 border-black rounded flex flex-col items-center justify-center ml-4">
+                                    <span class="text-xs font-bold uppercase border-b border-black w-full text-center pb-1 mb-1 text-black">Nilai</span>
+                                    <span class="text-2xl font-bold text-white">-</span>
+                                </div>
+                            </div>
+
+                            <div class="text-center mb-4">
+                                <h1 class="font-extrabold text-2xl text-black mb-2">LATIHAN MENYUSUN HURUF HIJAIYAH</h1>
+                                <p id="display-arabic-theme" class="text-brand-700 font-bold font-arabic text-4xl mt-1 mb-4">أَثَاثُ المَنْزِلِ</p>
+                                <p id="display-theme-meaning" class="text-black font-bold text-lg mt-4">(Isi Rumah)</p>
+                            </div>
+
+                            <div class="bg-red-50 border border-red-300 p-2 rounded mb-3">
+                                <p class="text-sm">
+                                    <span class="text-black font-normal">Instruksi:</span> 
+                                    <span class="text-red-600 font-normal" style="color: #dc2626;">Susunlah huruf-huruf hijaiyah acak di bawah ini menjadi Mufrodat yang benar, kemudian tuliskan terjemahan artinya!</span>
+                                    <span class="text-black font-normal">Tuliskan jawabanmu secara bersambung pada garis yang telah disediakan.</span>
+                                </p>
+                            </div>
+
+                            <table class="table-worksheet text-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="w-[5%]" width="5%">No</th>
+                                        <th class="w-[30%]" width="30%">Huruf Acak</th>
+                                        <th class="w-[45%]" width="45%">Tulis Mufrodat</th>
+                                        <th class="w-[20%]" width="20%">Tulis Arti (Indonesia)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body">
+                                    </tbody>
+                            </table>
+
+                            <div class="mt-auto pt-6 pb-1 w-full text-center" style="color: #cbd5e1;">
+                                <p class="font-bold tracking-[0.2em] uppercase" style="font-size: 8pt;">ALFAL.ID | BELAJAR BAHASA ARAB</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Database Kosakata (Mufrodat) - 30 Tema Lengkap
+        const dictionary = {
+            rumah: {
+                title: "أَثَاثُ المَنْزِلِ",
+                themeMeaning: "Isi Rumah",
+                words: [
+                    { meaning: "Rumah", letters: ["بَ", "يْ", "تٌ"] },
+                    { meaning: "Pintu", letters: ["بَ", "ا", "بٌ"] },
+                    { meaning: "Kasur", letters: ["سَ", "رِ", "يْ", "رٌ"] },
+                    { meaning: "Lemari", letters: ["خِ", "زَ", "ا", "نَ", "ةٌ"] },
+                    { meaning: "Cermin", letters: ["مِ", "رْ", "آ", "ةٌ"] },
+                    { meaning: "Bantal", letters: ["مِ", "خَ", "دَّ", "ةٌ"] },
+                    { meaning: "Jendela", letters: ["نَ", "ا", "فِ", "ذَ", "ةٌ"] },
+                    { meaning: "Kursi", letters: ["كُ", "رْ", "سِ", "يٌّ"] },
+                    { meaning: "Lampu", letters: ["مِ", "صْ", "بَ", "ا", "حٌ"] },
+                    { meaning: "Dinding", letters: ["جِ", "دَ", "ا", "رٌ"] }
+                ]
+            },
+            sekolah: {
+                title: "الأَدَوَاتُ المَدْرَسِيَّةُ",
+                themeMeaning: "Peralatan Sekolah",
+                words: [
+                    { meaning: "Buku", letters: ["كِ", "تَ", "ا", "بٌ"] },
+                    { meaning: "Pena", letters: ["قَ", "لَ", "مٌ"] },
+                    { meaning: "Penggaris", letters: ["مِ", "سْ", "طَ", "رَ", "ةٌ"] },
+                    { meaning: "Penghapus", letters: ["مِ", "مْ", "حَ", "ا", "ةٌ"] },
+                    { meaning: "Buku Tulis", letters: ["دَ", "فْ", "تَ", "رٌ"] },
+                    { meaning: "Tas", letters: ["حَ", "قِ", "يْ", "بَ", "ةٌ"] },
+                    { meaning: "Papan Tulis", letters: ["سَ", "بُّ", "وْ", "رَ", "ةٌ"] },
+                    { meaning: "Sekolah", letters: ["مَ", "دْ", "رَ", "سَ", "ةٌ"] },
+                    { meaning: "Meja", letters: ["مَ", "كْ", "تَ", "بٌ"] },
+                    { meaning: "Kelas", letters: ["فَ", "صْ", "لٌ"] }
+                ]
+            },
+            hewan: {
+                title: "الحَيَوَانَاتُ",
+                themeMeaning: "Hewan",
+                words: [
+                    { meaning: "Kucing", letters: ["قِ", "طٌّ"] },
+                    { meaning: "Anjing", letters: ["كَ", "لْ", "بٌ"] },
+                    { meaning: "Burung", letters: ["طَ", "يْ", "رٌ"] },
+                    { meaning: "Ikan", letters: ["سَ", "مَ", "كَ", "ةٌ"] },
+                    { meaning: "Singa", letters: ["أَ", "سَ", "دٌ"] },
+                    { meaning: "Kuda", letters: ["حِ", "صَ", "ا", "نٌ"] },
+                    { meaning: "Gajah", letters: ["فِ", "يْ", "لٌ"] },
+                    { meaning: "Ayam", letters: ["دَ", "جَ", "ا", "جَ", "ةٌ"] },
+                    { meaning: "Sapi", letters: ["بَ", "قَ", "رَ", "ةٌ"] },
+                    { meaning: "Kambing", letters: ["غَ", "نَ", "مٌ"] }
+                ]
+            },
+            anggotaTubuh: {
+                title: "أَعْضَاءُ الجِسْمِ",
+                themeMeaning: "Anggota Tubuh",
+                words: [
+                    { meaning: "Kepala", letters: ["رَ", "أْ", "سٌ"] },
+                    { meaning: "Mata", letters: ["عَ", "يْ", "نٌ"] },
+                    { meaning: "Hidung", letters: ["أَ", "نْ", "فٌ"] },
+                    { meaning: "Telinga", letters: ["أُ", "ذُ", "نٌ"] },
+                    { meaning: "Mulut", letters: ["فَ", "مٌ"] },
+                    { meaning: "Tangan", letters: ["يَ", "دٌ"] },
+                    { meaning: "Kaki", letters: ["رِ", "جْ", "لٌ"] },
+                    { meaning: "Rambut", letters: ["شَ", "عْ", "رٌ"] },
+                    { meaning: "Perut", letters: ["بَ", "طْ", "نٌ"] },
+                    { meaning: "Dada", letters: ["صَ", "دْ", "رٌ"] }
+                ]
+            },
+            buah: {
+                title: "الفَوَاكِهُ",
+                themeMeaning: "Buah-buahan",
+                words: [
+                    { meaning: "Apel", letters: ["تُ", "فَّ", "ا", "حٌ"] },
+                    { meaning: "Pisang", letters: ["مَ", "وْ", "زٌ"] },
+                    { meaning: "Jeruk", letters: ["بُ", "رْ", "تُ", "قَ", "ا", "لٌ"] },
+                    { meaning: "Anggur", letters: ["عِ", "نَ", "بٌ"] },
+                    { meaning: "Semangka", letters: ["بِ", "طِّ", "يْ", "خٌ"] },
+                    { meaning: "Kurma", letters: ["تَ", "مْ", "رٌ"] },
+                    { meaning: "Nanas", letters: ["أَ", "نَ", "ا", "نَ", "ا", "سٌ"] },
+                    { meaning: "Stroberi", letters: ["فَ", "رَ", "ا", "وِ", "لَ", "ةٌ"] },
+                    { meaning: "Delima", letters: ["رُ", "مَّ", "ا", "نٌ"] },
+                    { meaning: "Mangga", letters: ["مَ", "ا", "نْ", "جُ", "و"] }
+                ]
+            },
+            keluarga: {
+                title: "الأُسْرَةُ",
+                themeMeaning: "Keluarga",
+                words: [
+                    { meaning: "Ayah", letters: ["أَ", "بٌ"] },
+                    { meaning: "Ibu", letters: ["أُ", "مٌّ"] },
+                    { meaning: "Kakek", letters: ["جَ", "دٌّ"] },
+                    { meaning: "Nenek", letters: ["جَ", "دَّ", "ةٌ"] },
+                    { meaning: "Saudara Laki-laki", letters: ["أَ", "خٌ"] },
+                    { meaning: "Saudari Perempuan", letters: ["أُ", "خْ", "تٌ"] },
+                    { meaning: "Paman", letters: ["عَ", "مٌّ"] },
+                    { meaning: "Bibi", letters: ["عَ", "مَّ", "ةٌ"] },
+                    { meaning: "Anak Laki-laki", letters: ["اِ", "بْ", "نٌ"] },
+                    { meaning: "Anak Perempuan", letters: ["بِ", "نْ", "تٌ"] }
+                ]
+            },
+            warna: {
+                title: "الأَلْوَانُ",
+                themeMeaning: "Warna",
+                words: [
+                    { meaning: "Merah", letters: ["أَ", "حْ", "مَ", "رُ"] },
+                    { meaning: "Putih", letters: ["أَ", "بْ", "يَ", "ضُ"] },
+                    { meaning: "Hitam", letters: ["أَ", "سْ", "وَ", "دُ"] },
+                    { meaning: "Hijau", letters: ["أَ", "خْ", "ضَ", "رُ"] },
+                    { meaning: "Kuning", letters: ["أَ", "صْ", "فَ", "رُ"] },
+                    { meaning: "Biru", letters: ["أَ", "زْ", "رَ", "قُ"] },
+                    { meaning: "Cokelat", letters: ["بُ", "نِّ", "يٌّ"] },
+                    { meaning: "Oranye", letters: ["بُ", "رْ", "تُ", "قَ", "ا", "لِ", "يٌّ"] },
+                    { meaning: "Abu-abu", letters: ["رَ", "مَ", "ا", "دِ", "يٌّ"] },
+                    { meaning: "Merah Muda", letters: ["وَ", "رْ", "دِ", "يٌّ"] }
+                ]
+            },
+            transportasi: {
+                title: "المُوَاصَلَاتُ",
+                themeMeaning: "Transportasi",
+                words: [
+                    { meaning: "Mobil", letters: ["سَ", "يَّ", "ا", "رَ", "ةٌ"] },
+                    { meaning: "Sepeda", letters: ["دَ", "رَّ", "ا", "جَ", "ةٌ"] },
+                    { meaning: "Kereta Api", letters: ["قِ", "طَ", "ا", "رٌ"] },
+                    { meaning: "Pesawat", letters: ["طَ", "ا", "ئِ", "رَ", "ةٌ"] },
+                    { meaning: "Kapal", letters: ["سَ", "فِ", "يْ", "نَ", "ةٌ"] },
+                    { meaning: "Bus", letters: ["حَ", "ا", "فِ", "لَ", "ةٌ"] },
+                    { meaning: "Truk", letters: ["شَ", "ا", "حِ", "نَ", "ةٌ"] },
+                    { meaning: "Perahu", letters: ["قَ", "ا", "رِ", "بٌ"] },
+                    { meaning: "Kereta/Gerobak", letters: ["عَ", "رَ", "بَ", "ةٌ"] },
+                    { meaning: "Roket", letters: ["صَ", "ا", "رُ", "وْ", "خٌ"] }
+                ]
+            },
+            pakaian: {
+                title: "المَلَابِسُ",
+                themeMeaning: "Pakaian",
+                words: [
+                    { meaning: "Kemeja", letters: ["قَ", "مِ", "يْ", "صٌ"] },
+                    { meaning: "Celana", letters: ["سِ", "رْ", "وَ", "ا", "لٌ"] },
+                    { meaning: "Sepatu", letters: ["حِ", "ذَ", "ا", "ءٌ"] },
+                    { meaning: "Topi", letters: ["قُ", "بَّ", "عَ", "ةٌ"] },
+                    { meaning: "Kaos Kaki", letters: ["جَ", "وْ", "رَ", "بٌ"] },
+                    { meaning: "Peci/Kopiah", letters: ["قَ", "لَ", "نْ", "سُ", "وَ", "ةٌ"] },
+                    { meaning: "Kerudung", letters: ["خِ", "مَ", "ا", "رٌ"] },
+                    { meaning: "Sorban", letters: ["عِ", "مَ", "ا", "مَ", "ةٌ"] },
+                    { meaning: "Sabuk", letters: ["حِ", "زَ", "ا", "مٌ"] },
+                    { meaning: "Sandal", letters: ["نَ", "عْ", "لٌ"] }
+                ]
+            },
+            profesi: {
+                title: "المِهَنُ",
+                themeMeaning: "Profesi",
+                words: [
+                    { meaning: "Dokter", letters: ["طَ", "بِ", "يْ", "بٌ"] },
+                    { meaning: "Guru", letters: ["مُ", "دَ", "رِّ", "سٌ"] },
+                    { meaning: "Polisi", letters: ["شُ", "رْ", "طِ", "يٌّ"] },
+                    { meaning: "Petani", letters: ["فَ", "لَّ", "ا", "حٌ"] },
+                    { meaning: "Insinyur", letters: ["مُ", "هَ", "نْ", "دِ", "سٌ"] },
+                    { meaning: "Pedagang", letters: ["تَ", "ا", "جِ", "رٌ"] },
+                    { meaning: "Perawat", letters: ["مُ", "مَ", "رِّ", "ضَ", "ةٌ"] },
+                    { meaning: "Penjahit", letters: ["خَ", "يَّ", "ا", "طٌ"] },
+                    { meaning: "Tentara", letters: ["جُ", "نْ", "دِ", "يٌّ"] },
+                    { meaning: "Sopir", letters: ["سَ", "ا", "ئِ", "قٌ"] }
+                ]
+            },
+            tempat: {
+                title: "الأَمَاكِنُ",
+                themeMeaning: "Tempat Umum",
+                words: [
+                    { meaning: "Masjid", letters: ["مَ", "سْ", "جِ", "دٌ"] },
+                    { meaning: "Rumah Sakit", letters: ["مُ", "سْ", "تَ", "شْ", "فَ", "ى"] },
+                    { meaning: "Pasar", letters: ["سُ", "وْ", "قٌ"] },
+                    { meaning: "Perpustakaan", letters: ["مَ", "كْ", "تَ", "بَ", "ةٌ"] },
+                    { meaning: "Bandara", letters: ["مَ", "طَ", "ا", "رٌ"] },
+                    { meaning: "Stasiun", letters: ["مَ", "حَ", "طَّ", "ةٌ"] },
+                    { meaning: "Taman", letters: ["حَ", "دِ", "يْ", "قَ", "ةٌ"] },
+                    { meaning: "Desa", letters: ["قَ", "رْ", "يَ", "ةٌ"] },
+                    { meaning: "Kota", letters: ["مَ", "دِ", "يْ", "نَ", "ةٌ"] },
+                    { meaning: "Jalan", letters: ["شَ", "ا", "رِ", "عٌ"] }
+                ]
+            },
+            sayuran: {
+                title: "الخَضْرَوَاتُ",
+                themeMeaning: "Sayuran",
+                words: [
+                    { meaning: "Tomat", letters: ["طَ", "مَ", "ا", "طِ", "مٌ"] },
+                    { meaning: "Kentang", letters: ["بَ", "طَ", "ا", "طِ", "سٌ"] },
+                    { meaning: "Bawang Merah", letters: ["بَ", "صَ", "لٌ"] },
+                    { meaning: "Bawang Putih", letters: ["ثُ", "وْ", "مٌ"] },
+                    { meaning: "Jagung", letters: ["ذُ", "رَ", "ةٌ"] },
+                    { meaning: "Wortel", letters: ["جَ", "زَ", "رٌ"] },
+                    { meaning: "Timun", letters: ["خِ", "يَ", "ا", "رٌ"] },
+                    { meaning: "Terong", letters: ["بَ", "ا", "ذِ", "نْ", "جَ", "ا", "نٌ"] },
+                    { meaning: "Bayam", letters: ["سَ", "بَ", "ا", "نِ", "خٌ"] },
+                    { meaning: "Kubis / Kol", letters: ["مَ", "لْ", "فُ", "وْ", "فٌ"] }
+                ]
+            },
+            minuman: {
+                title: "المَشْرُوبَاتُ",
+                themeMeaning: "Minuman",
+                words: [
+                    { meaning: "Air", letters: ["مَ", "ا", "ءٌ"] },
+                    { meaning: "Susu", letters: ["حَ", "لِ", "يْ", "بٌ"] },
+                    { meaning: "Kopi", letters: ["قَ", "هْ", "وَ", "ةٌ"] },
+                    { meaning: "Teh", letters: ["شَ", "ا", "يٌ"] },
+                    { meaning: "Jus", letters: ["عَ", "صِ", "يْ", "رٌ"] },
+                    { meaning: "Madu", letters: ["عَ", "سَ", "لٌ"] },
+                    { meaning: "Es", letters: ["ثَ", "لْ", "جٌ"] },
+                    { meaning: "Sirup", letters: ["شَ", "رَ", "ا", "بٌ"] },
+                    { meaning: "Yogurt", letters: ["لَ", "بَ", "نٌ"] },
+                    { meaning: "Jahe", letters: ["زَ", "نْ", "جَ", "بِ", "يْ", "لٌ"] }
+                ]
+            },
+            alam: {
+                title: "الطَّبِيْعَةُ",
+                themeMeaning: "Alam Semesta",
+                words: [
+                    { meaning: "Langit", letters: ["سَ", "مَ", "ا", "ءٌ"] },
+                    { meaning: "Bumi", letters: ["أَ", "رْ", "ضٌ"] },
+                    { meaning: "Matahari", letters: ["شَ", "مْ", "سٌ"] },
+                    { meaning: "Bulan", letters: ["قَ", "مَ", "رٌ"] },
+                    { meaning: "Bintang", letters: ["نَ", "جْ", "مٌ"] },
+                    { meaning: "Gunung", letters: ["جَ", "بَ", "لٌ"] },
+                    { meaning: "Laut", letters: ["بَ", "حْ", "رٌ"] },
+                    { meaning: "Sungai", letters: ["نَ", "هْ", "رٌ"] },
+                    { meaning: "Pohon", letters: ["شَ", "جَ", "رَ", "ةٌ"] },
+                    { meaning: "Hujan", letters: ["مَ", "طَ", "رٌ"] }
+                ]
+            },
+            waktu: {
+                title: "الأَوْقَاتُ وَالجِهَاتُ",
+                themeMeaning: "Waktu & Arah",
+                words: [
+                    { meaning: "Pagi", letters: ["صَ", "بَ", "ا", "حٌ"] },
+                    { meaning: "Siang", letters: ["نَ", "هَ", "ا", "رٌ"] },
+                    { meaning: "Sore", letters: ["مَ", "سَ", "ا", "ءٌ"] },
+                    { meaning: "Malam", letters: ["لَ", "يْ", "لٌ"] },
+                    { meaning: "Hari", letters: ["يَ", "وْ", "مٌ"] },
+                    { meaning: "Bulan (Waktu)", letters: ["شَ", "هْ", "رٌ"] },
+                    { meaning: "Tahun", letters: ["سَ", "نَ", "ةٌ"] },
+                    { meaning: "Utara", letters: ["شَ", "مَ", "ا", "لٌ"] },
+                    { meaning: "Selatan", letters: ["جَ", "نُ", "وْ", "بٌ"] },
+                    { meaning: "Barat", letters: ["غَ", "رْ", "بٌ"] }
+                ]
+            },
+            dapur: {
+                title: "أَدَوَاتُ المَطْبَخِ",
+                themeMeaning: "Peralatan Dapur",
+                words: [
+                    { meaning: "Piring", letters: ["صَ", "حْ", "نٌ"] },
+                    { meaning: "Gelas", letters: ["كُ", "وْ", "بٌ"] },
+                    { meaning: "Sendok", letters: ["مِ", "لْ", "عَ", "قَ", "ةٌ"] },
+                    { meaning: "Garpu", letters: ["شَ", "وْ", "كَ", "ةٌ"] },
+                    { meaning: "Pisau", letters: ["سِ", "كِّ", "يْ", "نٌ"] },
+                    { meaning: "Panci", letters: ["قِ", "دْ", "رٌ"] },
+                    { meaning: "Wajan", letters: ["مِ", "قْ", "لَ", "ا", "ةٌ"] },
+                    { meaning: "Gelas Kaca", letters: ["كَ", "أْ", "سٌ"] },
+                    { meaning: "Teko", letters: ["إِ", "بْ", "رِ", "يْ", "قٌ"] },
+                    { meaning: "Kompor", letters: ["مَ", "وْ", "قِ", "دٌ"] }
+                ]
+            },
+            olahraga: {
+                title: "الرِّيَاضَةُ",
+                themeMeaning: "Olahraga",
+                words: [
+                    { meaning: "Bola", letters: ["كُ", "رَ", "ةٌ"] },
+                    { meaning: "Lapangan", letters: ["مَ", "لْ", "عَ", "بٌ"] },
+                    { meaning: "Tim / Regu", letters: ["فَ", "رِ", "يْ", "قٌ"] },
+                    { meaning: "Raket", letters: ["مِ", "ضْ", "رَ", "بٌ"] },
+                    { meaning: "Gawang", letters: ["مَ", "رْ", "مَ", "ى"] },
+                    { meaning: "Jaring / Net", letters: ["شَ", "بَ", "كَ", "ةٌ"] },
+                    { meaning: "Peluit", letters: ["صَ", "ا", "فِ", "رَ", "ةٌ"] },
+                    { meaning: "Lari", letters: ["جَ", "رْ", "يٌ"] },
+                    { meaning: "Renang", letters: ["سِ", "بَ", "ا", "حَ", "ةٌ"] },
+                    { meaning: "Pemenang", letters: ["فَ", "ا", "ئِ", "زٌ"] }
+                ]
+            },
+            bentuk: {
+                title: "الأَشْكَالُ",
+                themeMeaning: "Bentuk",
+                words: [
+                    { meaning: "Lingkaran", letters: ["دَ", "ا", "ئِ", "رَ", "ةٌ"] },
+                    { meaning: "Persegi", letters: ["مُ", "رَ", "بَّ", "عٌ"] },
+                    { meaning: "Segitiga", letters: ["مُ", "ثَ", "لَّ", "ثٌ"] },
+                    { meaning: "Persegi Panjang", letters: ["مُ", "سْ", "تَ", "طِ", "يْ", "لٌ"] },
+                    { meaning: "Bintang", letters: ["نَ", "جْ", "مَ", "ةٌ"] },
+                    { meaning: "Oval / Lonjong", letters: ["بَ", "يْ", "ضَ", "وِ", "يٌّ"] },
+                    { meaning: "Kubus", letters: ["مُ", "كَ", "عَّ", "بٌ"] },
+                    { meaning: "Kerucut", letters: ["مَ", "خْ", "رُ", "وْ", "طٌ"] },
+                    { meaning: "Tabung", letters: ["أُ", "سْ", "طُ", "وَ", "ا", "نَ", "ةٌ"] },
+                    { meaning: "Garis", letters: ["خَ", "طٌّ"] }
+                ]
+            },
+            cuaca: {
+                title: "الطَّقْسُ وَالفُصُولُ",
+                themeMeaning: "Cuaca & Musim",
+                words: [
+                    { meaning: "Hujan", letters: ["مَ", "طَ", "رٌ"] },
+                    { meaning: "Salju", letters: ["ثَ", "لْ", "جٌ"] },
+                    { meaning: "Angin", letters: ["رِ", "يْ", "حٌ"] },
+                    { meaning: "Awan", letters: ["سَ", "حَ", "ا", "بٌ"] },
+                    { meaning: "Panas", letters: ["حَ", "ا", "رٌّ"] },
+                    { meaning: "Dingin", letters: ["بَ", "ا", "رِ", "دٌ"] },
+                    { meaning: "Musim Panas", letters: ["صَ", "يْ", "فٌ"] },
+                    { meaning: "Musim Dingin", letters: ["شِ", "تَ", "ا", "ءٌ"] },
+                    { meaning: "Musim Semi", letters: ["رَ", "بِ", "يْ", "عٌ"] },
+                    { meaning: "Musim Gugur", letters: ["خَ", "رِ", "يْ", "فٌ"] }
+                ]
+            },
+            serangga: {
+                title: "الحَشَرَاتُ",
+                themeMeaning: "Serangga",
+                words: [
+                    { meaning: "Nyamuk", letters: ["بَ", "عُ", "وْ", "ضَ", "ةٌ"] },
+                    { meaning: "Lalat", letters: ["ذُ", "بَ", "ا", "بَ", "ةٌ"] },
+                    { meaning: "Lebah", letters: ["نَ", "حْ", "لَ", "ةٌ"] },
+                    { meaning: "Semut", letters: ["نَ", "مْ", "لَ", "ةٌ"] },
+                    { meaning: "Kupu-kupu", letters: ["فَ", "رَ", "ا", "شَ", "ةٌ"] },
+                    { meaning: "Laba-laba", letters: ["عَ", "نْ", "كَ", "بُ", "وْ", "تٌ"] },
+                    { meaning: "Belalang", letters: ["جَ", "رَ", "ا", "دَ", "ةٌ"] },
+                    { meaning: "Kutu", letters: ["قَ", "مْ", "لَ", "ةٌ"] },
+                    { meaning: "Ulat", letters: ["دُ", "وْ", "دَ", "ةٌ"] },
+                    { meaning: "Kecoa", letters: ["صُ", "رْ", "صُ", "وْ", "رٌ"] }
+                ]
+            },
+            kesehatan: {
+                title: "الصِّحَّةُ وَالأَمْرَاضُ",
+                themeMeaning: "Kesehatan & Penyakit",
+                words: [
+                    { meaning: "Demam", letters: ["حُ", "مَّ", "ى"] },
+                    { meaning: "Batuk", letters: ["سُ", "عَ", "ا", "لٌ"] },
+                    { meaning: "Pilek", letters: ["زُ", "كَ", "ا", "مٌ"] },
+                    { meaning: "Obat", letters: ["دَ", "وَ", "ا", "ءٌ"] },
+                    { meaning: "Darah", letters: ["دَ", "مٌ"] },
+                    { meaning: "Luka", letters: ["جُ", "رْ", "حٌ"] },
+                    { meaning: "Sakit", letters: ["أَ", "لَ", "مٌ"] },
+                    { meaning: "Pasien", letters: ["مَ", "رِ", "يْ", "ضٌ"] },
+                    { meaning: "Sehat", letters: ["صِ", "حَّ", "ةٌ"] },
+                    { meaning: "Pusing", letters: ["صُ", "دَ", "ا", "عٌ"] }
+                ]
+            },
+            peralatan: {
+                title: "الأَدَوَاتُ",
+                themeMeaning: "Peralatan Tukang",
+                words: [
+                    { meaning: "Palu", letters: ["مِ", "طْ", "رَ", "قَ", "ةٌ"] },
+                    { meaning: "Paku", letters: ["مِ", "سْ", "مَ", "ا", "رٌ"] },
+                    { meaning: "Gergaji", letters: ["مِ", "نْ", "شَ", "ا", "رٌ"] },
+                    { meaning: "Tang", letters: ["كَ", "مَّ", "ا", "شَ", "ةٌ"] },
+                    { meaning: "Obeng", letters: ["مِ", "فَ", "كٌّ"] },
+                    { meaning: "Kapak", letters: ["فَ", "أْ", "سٌ"] },
+                    { meaning: "Sekop", letters: ["مِ", "جْ", "رَ", "فَ", "ةٌ"] },
+                    { meaning: "Bor", letters: ["مِ", "ثْ", "قَ", "ا", "بٌ"] },
+                    { meaning: "Kunci Pas", letters: ["مِ", "فْ", "تَ", "ا", "حٌ"] },
+                    { meaning: "Gunting", letters: ["مِ", "قَ", "صٌّ"] }
+                ]
+            },
+            tumbuhan: {
+                title: "النَّبَاتَاتُ",
+                themeMeaning: "Tumbuhan",
+                words: [
+                    { meaning: "Daun", letters: ["وَ", "رَ", "قَ", "ةٌ"] },
+                    { meaning: "Bunga", letters: ["زَ", "هْ", "رَ", "ةٌ"] },
+                    { meaning: "Rumput", letters: ["عُ", "شْ", "بٌ"] },
+                    { meaning: "Mawar", letters: ["وَ", "رْ", "دَ", "ةٌ"] },
+                    { meaning: "Melati", letters: ["يَ", "ا", "سْ", "مِ", "يْ", "نُ"] },
+                    { meaning: "Akar", letters: ["جِ", "ذْ", "رٌ"] },
+                    { meaning: "Dahan", letters: ["غُ", "صْ", "نٌ"] },
+                    { meaning: "Biji", letters: ["بَ", "ذْ", "رَ", "ةٌ"] },
+                    { meaning: "Batang", letters: ["سَ", "ا", "قٌ"] },
+                    { meaning: "Buah (Hasil)", letters: ["ثَ", "مَ", "رَ", "ةٌ"] }
+                ]
+            },
+            elektronik: {
+                title: "الإِلِكْتِرُونِيَّاتُ",
+                themeMeaning: "Elektronik",
+                words: [
+                    { meaning: "Komputer", letters: ["حَ", "ا", "سُ", "وْ", "بٌ"] },
+                    { meaning: "Telepon", letters: ["هَ", "ا", "تِ", "فٌ"] },
+                    { meaning: "Televisi", letters: ["تِ", "لْ", "فَ", "ا", "زٌ"] },
+                    { meaning: "Radio", letters: ["مِ", "ذْ", "يَ", "ا", "عٌ"] },
+                    { meaning: "Kipas Angin", letters: ["مِ", "رْ", "وَ", "حَ", "ةٌ"] },
+                    { meaning: "Kulkas", letters: ["ثَ", "لَّ", "ا", "جَ", "ةٌ"] },
+                    { meaning: "Setrika", letters: ["مِ", "كْ", "وَ", "ا", "ةٌ"] },
+                    { meaning: "Mesin Cuci", letters: ["غَ", "سَّ", "ا", "لَ", "ةٌ"] },
+                    { meaning: "Kamera", letters: ["كَ", "ا", "مِ", "يْ", "رَ", "ا"] },
+                    { meaning: "Layar", letters: ["شَ", "ا", "شَ", "ةٌ"] }
+                ]
+            },
+            makanan: {
+                title: "الأَطْعِمَةُ",
+                themeMeaning: "Makanan",
+                words: [
+                    { meaning: "Roti", letters: ["خُ", "بْ", "زٌ"] },
+                    { meaning: "Nasi", letters: ["أَ", "رُ", "زٌّ"] },
+                    { meaning: "Daging", letters: ["لَ", "حْ", "مٌ"] },
+                    { meaning: "Telur", letters: ["بَ", "يْ", "ضَ", "ةٌ"] },
+                    { meaning: "Keju", letters: ["جُ", "بْ", "نٌ"] },
+                    { meaning: "Garam", letters: ["مِ", "لْ", "حٌ"] },
+                    { meaning: "Gula", letters: ["سُ", "كَّ", "رٌ"] },
+                    { meaning: "Minyak", letters: ["زَ", "يْ", "تٌ"] },
+                    { meaning: "Kue", letters: ["كَ", "عْ", "كَ", "ةٌ"] },
+                    { meaning: "Sup", letters: ["حَ", "سَ", "ا", "ءٌ"] }
+                ]
+            },
+            agama: {
+                title: "الدِّيْنُ وَالعِبَادَةُ",
+                themeMeaning: "Agama & Ibadah",
+                words: [
+                    { meaning: "Al-Quran", letters: ["قُ", "رْ", "آ", "نٌ"] },
+                    { meaning: "Sajadah", letters: ["سَ", "جَّ", "ا", "دَ", "ةٌ"] },
+                    { meaning: "Tasbih", letters: ["مِ", "سْ", "بَ", "حَ", "ةٌ"] },
+                    { meaning: "Masjid", letters: ["مَ", "سْ", "جِ", "دٌ"] },
+                    { meaning: "Mimbar", letters: ["مِ", "نْ", "بَ", "رٌ"] },
+                    { meaning: "Wudhu", letters: ["وُ", "ضُ", "وْ", "ءٌ"] },
+                    { meaning: "Shalat", letters: ["صَ", "لَ", "ا", "ةٌ"] },
+                    { meaning: "Puasa", letters: ["صِ", "يَ", "ا", "مٌ"] },
+                    { meaning: "Zakat", letters: ["زَ", "كَ", "ا", "ةٌ"] },
+                    { meaning: "Haji", letters: ["حَ", "جٌّ"] }
+                ]
+            },
+            taman: {
+                title: "فِي الحَدِيْقَةِ",
+                themeMeaning: "Di Taman",
+                words: [
+                    { meaning: "Pagar", letters: ["سُ", "وْ", "رٌ"] },
+                    { meaning: "Kolam", letters: ["بِ", "رْ", "كَ", "ةٌ"] },
+                    { meaning: "Air Mancur", letters: ["نَ", "ا", "فُ", "وْ", "رَ", "ةٌ"] },
+                    { meaning: "Rumput", letters: ["عُ", "شْ", "بٌ"] },
+                    { meaning: "Bangku", letters: ["مَ", "قْ", "عَ", "دٌ"] },
+                    { meaning: "Bunga", letters: ["زَ", "هْ", "رَ", "ةٌ"] },
+                    { meaning: "Pohon", letters: ["شَ", "جَ", "رَ", "ةٌ"] },
+                    { meaning: "Daun", letters: ["وَ", "رَ", "قَ", "ةٌ"] },
+                    { meaning: "Ayunan", letters: ["أُ", "رْ", "جُ", "وْ", "حَ", "ةٌ"] },
+                    { meaning: "Tempat Sampah", letters: ["مَ", "زْ", "بَ", "لَ", "ةٌ"] }
+                ]
+            },
+            laluLintas: {
+                title: "المُرُورُ",
+                themeMeaning: "Lalu Lintas",
+                words: [
+                    { meaning: "Jalan Raya", letters: ["شَ", "ا", "رِ", "عٌ"] },
+                    { meaning: "Jembatan", letters: ["جِ", "سْ", "رٌ"] },
+                    { meaning: "Trotoar", letters: ["رَ", "صِ", "يْ", "فٌ"] },
+                    { meaning: "Lampu Merah", letters: ["إِ", "شَ", "ا", "رَ", "ةٌ"] },
+                    { meaning: "Persimpangan", letters: ["تَ", "قَ", "ا", "طُ", "عٌ"] },
+                    { meaning: "Halte", letters: ["مَ", "وْ", "قِ", "فٌ"] },
+                    { meaning: "Tikungan", letters: ["مُ", "نْ", "عَ", "طَ", "فٌ"] },
+                    { meaning: "Terowongan", letters: ["نَ", "فَ", "قٌ"] },
+                    { meaning: "Kendaraan", letters: ["مَ", "رْ", "كَ", "بَ", "ةٌ"] },
+                    { meaning: "Polisi", letters: ["شُ", "رْ", "طِ", "يٌّ"] }
+                ]
+            },
+            pantai: {
+                title: "الشَّاطِئُ وَالبَحْرُ",
+                themeMeaning: "Pantai & Laut",
+                words: [
+                    { meaning: "Pantai", letters: ["شَ", "ا", "طِ", "ئٌ"] },
+                    { meaning: "Laut", letters: ["بَ", "حْ", "رٌ"] },
+                    { meaning: "Pasir", letters: ["رَ", "مْ", "لٌ"] },
+                    { meaning: "Ombak", letters: ["مَ", "وْ", "جٌ"] },
+                    { meaning: "Kerang", letters: ["صَ", "دَ", "فَ", "ةٌ"] },
+                    { meaning: "Pulau", letters: ["جَ", "زِ", "يْ", "رَ", "ةٌ"] },
+                    { meaning: "Kapal", letters: ["سَ", "فِ", "يْ", "نَ", "ةٌ"] },
+                    { meaning: "Perahu", letters: ["قَ", "ا", "رِ", "بٌ"] },
+                    { meaning: "Jaring", letters: ["شَ", "بَ", "كَ", "ةٌ"] },
+                    { meaning: "Ikan", letters: ["سَ", "مَ", "كَ", "ةٌ"] }
+                ]
+            },
+            sifat: {
+                title: "الصِّفَاتُ",
+                themeMeaning: "Kata Sifat",
+                words: [
+                    { meaning: "Besar", letters: ["كَ", "بِ", "يْ", "رٌ"] },
+                    { meaning: "Kecil", letters: ["صَ", "غِ", "يْ", "رٌ"] },
+                    { meaning: "Panjang", letters: ["طَ", "وِ", "يْ", "لٌ"] },
+                    { meaning: "Pendek", letters: ["قَ", "صِ", "يْ", "رٌ"] },
+                    { meaning: "Cepat", letters: ["سَ", "رِ", "يْ", "عٌ"] },
+                    { meaning: "Lambat", letters: ["بَ", "طِ", "يْ", "ءٌ"] },
+                    { meaning: "Baru", letters: ["جَ", "دِ", "يْ", "دٌ"] },
+                    { meaning: "Lama / Tua", letters: ["قَ", "دِ", "يْ", "مٌ"] },
+                    { meaning: "Bagus", letters: ["جَ", "مِ", "يْ", "لٌ"] },
+                    { meaning: "Jelek", letters: ["قَ", "بِ", "يْ", "حٌ"] }
+                ]
+            }
+        };
+
+        let currentQuestions = [];
+        const VALID_TOKEN = "98765"; // Token akses default yang bisa Anda ubah
+
+        // Fungsi Handle Login
+        function checkLoginStatus() {
+            const isLoggedIn = sessionStorage.getItem('alfal_logged_in');
+            if (isLoggedIn) {
+                document.getElementById('login-overlay').style.display = 'none';
+            }
+        }
+
+        function handleLogin() {
+            const name = document.getElementById('login-name').value.trim();
+            const token = document.getElementById('login-token').value.trim();
+            const errorDiv = document.getElementById('login-error');
+
+            if (name === '' || token === '') {
+                errorDiv.innerText = "Nama dan token tidak boleh kosong!";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (token === VALID_TOKEN) {
+                sessionStorage.setItem('alfal_logged_in', 'true');
+                sessionStorage.setItem('alfal_user_name', name);
+                
+                // Efek transisi saat login berhasil
+                const overlay = document.getElementById('login-overlay');
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 300);
+            } else {
+                errorDiv.innerText = "Token akses tidak valid!";
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        // Inisialisasi awal
+        window.onload = () => {
+            checkLoginStatus();
+            generateWorksheet();
+        };
+
+        // Fungsi Update Judul Header
+        function updateHeader() {
+            const val = document.getElementById('school-name').value;
+            const schoolDisplay = document.getElementById('display-school');
+            if (schoolDisplay) schoolDisplay.innerText = val;
+        }
+
+        // Fungsi Generate Worksheet berdasarkan Tema
+        function generateWorksheet() {
+            document.getElementById('mode-worksheet').style.display = 'flex';
+            document.getElementById('export-buttons-worksheet').style.display = 'flex';
+            
+            const themeKey = document.getElementById('theme-select').value;
+            const themeData = dictionary[themeKey];
+            
+            // Perbarui judul tema
+            document.getElementById('display-arabic-theme').innerText = themeData.title;
+            document.getElementById('display-theme-meaning').innerText = `(${themeData.themeMeaning})`;
+            
+            currentQuestions = [...themeData.words];
+            renderTable();
+        }
+
+        // Fungsi Acak Array (Fisher-Yates)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Fungsi Acak Soal
+        function shuffleQuestions() {
+            shuffleArray(currentQuestions);
+            currentQuestions = currentQuestions.map(item => {
+                let scrambledLetters = [...item.letters];
+                if(scrambledLetters.length > 2){
+                     let isSame = true;
+                     while(isSame){
+                         shuffleArray(scrambledLetters);
+                         if(scrambledLetters.join('') !== item.letters.join('')) isSame = false;
+                     }
+                } else {
+                     shuffleArray(scrambledLetters);
+                }
+                return { ...item, scrambledLetters };
+            });
+
+            renderTable();
+        }
+
+        // Fungsi Render ke HTML Table (BAGIAN 2 - Tanpa Arti)
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            currentQuestions.forEach((item, index) => {
+                const lettersToShow = item.scrambledLetters || [...item.letters].reverse();
+                
+                let letterBoxesHTML = '';
+                lettersToShow.forEach(letter => {
+                    letterBoxesHTML += `<span class="letter-box" style="color: #000; font-weight: bold;">${letter}</span>`;
+                });
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="text-center text-black text-base font-normal" style="color: black; font-weight: normal;">${index + 1}</td>
+                    <td class="text-center" dir="rtl">
+                        ${letterBoxesHTML}
+                    </td>
+                    <td class="text-center px-4">
+                        <div class="writing-line"></div>
+                    </td>
+                    <td class="text-center px-4">
+                        <div class="writing-line"></div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // FUNGSI EKSPOR KE PDF
+        function exportToPDF() {
+            const element = document.getElementById('worksheet-content');
+            let fileName = 'Worksheet_Mufrodat_Bagian_2.pdf';
+            
+            const opt = {
+                margin:       0,
+                filename:     fileName,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const wrapper = document.getElementById('worksheet-wrapper');
+            wrapper.style.boxShadow = 'none';
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                wrapper.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+            });
+        }
+
+        // FUNGSI EKSPOR KE WORD (.doc)
+        function exportToWord() {
+            let content = document.getElementById('mode-worksheet').innerHTML;
+            let fileName = 'Worksheet_Mufrodat_Bagian_2.doc';
+            
+            const preHtml = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>Worksheet Mufrodat</title>
+                    <style>
+                        body { font-family: 'Arial', sans-serif; position: relative; }
+                        h1, h2, h3 { color: #000; text-align: center; font-weight: bold; }
+                        .table-worksheet { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        .table-worksheet th, .table-worksheet td { border: 1pt solid black; padding: 18px 10px; text-align: center; vertical-align: middle; font-size: 12pt; color: #000; font-weight: normal; }
+                        .table-worksheet th { background-color: #f2f2f2; font-weight: bold; }
+                        .letter-box { display: inline-block; text-align: center; font-size: 22pt; font-family: 'Times New Roman', serif; margin: 0 4px; direction: rtl; color: #000; font-weight: bold; }
+                        .arabic-word { font-family: 'Times New Roman', serif; font-size: 24pt; font-weight: bold; color: #000; direction: rtl; }
+                        .writing-line { border-bottom: 0.5pt dashed #000; width: 100%; height: 24px; display: inline-block; }
+                        .text-right { text-align: right; }
+                        .text-center { text-align: center; }
+                        .font-bold { font-weight: bold; color: #000; }
+                        #display-theme-meaning { font-size: 14pt; font-weight: bold; color: #000; margin-top: 30px; }
+                        #display-arabic-theme { margin-bottom: 30px; }
+                        #display-school { color: #15803d !important; }
+                        .mt-auto.w-full.text-center, .mt-6.mb-2.w-full.text-center { margin-top: 50px; text-align: center; color: #cbd5e1; font-weight: bold; font-size: 8pt; letter-spacing: 2px; }
+                    </style>
+                </head>
+                <body>
+            `;
+            const postHtml = "</body></html>";
+            
+            const html = preHtml + content + postHtml;
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            const url = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(html);
+            
+            const downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            
+            if (navigator.msSaveOrOpenBlob) {
+                navigator.msSaveOrOpenBlob(blob, fileName);
+            } else {
+                downloadLink.href = url;
+                downloadLink.download = fileName;
+                downloadLink.click();
+            }
+            
+            document.body.removeChild(downloadLink);
+        }
+    </script>
+</body>
+</html>
